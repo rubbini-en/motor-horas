@@ -144,7 +144,7 @@ export function calcularJornada(
   const atraso = entrada - inicioTurno
 
   if (atraso > 0) {
-    if (atraso < cfg.toleranciaEntradaMinutos) {
+    if (atraso <= cfg.toleranciaEntradaMinutos) {
       tmp = inicioTurno
       detalle.push(`Atraso de ${atraso} min dentro de la tolerancia (${cfg.toleranciaEntradaMinutos} min).`)
     } else {
@@ -231,16 +231,11 @@ export function calcularJornada(
       ? jornada.colaborador.salarioBase / cfg.diasMes
       : jornada.colaborador.salarioBase
 
-  const arrancaDeNoche = esMinutoNocturno(
-    ((inicioComputado % MINUTOS_POR_DIA) + MINUTOS_POR_DIA) % MINUTOS_POR_DIA,
-    minutosDelDia(cfg.inicioNocturno),
-    minutosDelDia(cfg.finNocturno),
-  )
-  const divisorJornada = arrancaDeNoche ? cfg.divisorNocturno : cfg.divisorDiurno
-  const valorMinuto = jornal / divisorJornada / 60
+  const valorMinutoDiurno = jornal / cfg.divisorDiurno / 60
+  const valorMinutoNocturno = jornal / cfg.divisorNocturno / 60
 
   detalle.push(
-    `Jornal ${Math.round(jornal)} G$ · divisor ${divisorJornada} · valor minuto ${valorMinuto.toFixed(2)} G$.`,
+    `Jornal ${Math.round(jornal)} G$ · valor minuto diurno ${valorMinutoDiurno.toFixed(2)} G$ · nocturno ${valorMinutoNocturno.toFixed(2)} G$.`,
   )
 
   // ------------------------------------------------------------------
@@ -261,7 +256,10 @@ export function calcularJornada(
     let restante = duracion(b)
     if (restante <= 0) continue
 
-    if (esFeriado) {
+    const valorMinuto = b.nocturno ? valorMinutoNocturno : valorMinutoDiurno
+    const bloqueEsFeriado = calendario.esFeriado(b.fecha)
+
+    if (bloqueEsFeriado) {
       // En feriado no se separan ordinarias de extras: todo el tiempo del día
       // se paga como feriado, con el recargo del feriado.
       if (b.nocturno) {
