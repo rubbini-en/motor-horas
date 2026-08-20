@@ -31,6 +31,13 @@ import {
   ValoresPorCategoria,
 } from './tipos.js'
 
+/**
+ * Fecha de entrada en vigencia de la Resolución 118/2026 (adicional del 40%
+ * sobre las horas ordinarias nocturnas). Solo aplica a empresas adheridas.
+ * Comparación como string: el formato `YYYY-MM-DD` es lexicográficamente ordenable.
+ */
+export const VIGENCIA_RESOLUCION_118 = '2026-10-01'
+
 /** Un pedazo homogéneo del tiempo trabajado: o es todo diurno, o es todo nocturno. */
 interface Bloque extends Rango {
   nocturno: boolean
@@ -277,8 +284,12 @@ export function calcularJornada(
       aux -= ordinarias
       restante -= ordinarias
       if (b.nocturno) {
+        // Resolución 118/2026, art. 1°: para empresas adheridas y desde la vigencia,
+        // el recargo de las ordinarias nocturnas pasa del 30% al 40%.
+        const recargoNocturnoVigente =
+          cfg.adherida118 && jornada.fecha >= VIGENCIA_RESOLUCION_118 ? 0.4 : cfg.recargoNocturno
         min.ordinariasNocturnas += ordinarias
-        val.ordinariasNocturnas += ordinarias * valorMinuto * (1 + cfg.recargoNocturno)
+        val.ordinariasNocturnas += ordinarias * valorMinuto * (1 + recargoNocturnoVigente)
       } else {
         min.ordinariasDiurnas += ordinarias
         val.ordinariasDiurnas += ordinarias * valorMinuto
@@ -287,6 +298,10 @@ export function calcularJornada(
 
     if (restante > 0) {
       // Las horas extraordinarias se pagan siempre con el 50% de recargo.
+      // Nota: el art. 3° de la Resolución 118/2026 dice que el adicional del art. 1°
+      // "integra la base de cálculo" de las extras, pero `recargoExtraNocturna` es una
+      // constante independiente de `recargoNocturno` — no hay hoja donde enganchar el
+      // nuevo adicional sin inventar estructura. Recorte de alcance deliberado.
       const extras = Math.min(restante, restanteTope)
       const sobra = restante - extras
       restanteTope -= extras

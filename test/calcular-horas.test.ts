@@ -224,6 +224,52 @@ describe('configuración por empresa', () => {
   })
 })
 
+describe('resolución 118/2026 · recargo nocturno del 40%', () => {
+  const ADHERIDA_118: ConfigEmpresa = { ...FRIGORIFICO, adherida118: true }
+
+  it('empresa no adherida: la vigencia no la alcanza, sigue con el recargo del 30%', () => {
+    // Jornada del 2026-10-05 (posterior a la vigencia) pero empresa NO adherida.
+    const r = calcularJornada(
+      jornada({ fecha: '2026-10-05', turno: TURNO_VIGILANCIA, entrada: '20:00', salida: '23:00' }),
+    )
+
+    expect(r.total).toBe(55_714) // 3 h × 14.285,71 × 1,30
+  })
+
+  it('empresa adherida, jornada anterior a la vigencia: se liquida con el régimen anterior', () => {
+    // Art. 4°: las jornadas anteriores al 2026-10-01 se liquidan sin el nuevo adicional.
+    const r = calcularJornada(
+      jornada({ fecha: '2026-09-28', turno: TURNO_VIGILANCIA, entrada: '20:00', salida: '23:00' }),
+      ADHERIDA_118,
+    )
+
+    expect(r.total).toBe(55_714) // sigue con el 30% del régimen anterior
+  })
+
+  it('empresa adherida, jornada en vigencia: las ordinarias nocturnas pagan el 40%', () => {
+    const r = calcularJornada(
+      jornada({ fecha: '2026-10-05', turno: TURNO_VIGILANCIA, entrada: '20:00', salida: '23:00' }),
+      ADHERIDA_118,
+    )
+
+    expect(r.total).toBe(60_000) // 3 h × 14.285,71 × 1,40
+  })
+
+  it('feriado nocturno bajo el régimen adherido: el feriado sigue con el recargo anterior (0,30)', () => {
+    // 2026-12-25 (Navidad), posterior a la vigencia. El art. 1° nombra "ordinarias
+    // nocturnas": el feriado nocturno queda fuera del alcance de este cambio.
+    const r = calcularJornada(
+      jornada({ fecha: '2026-12-25', turno: TURNO_VIGILANCIA, entrada: '20:00', salida: '23:00' }),
+      ADHERIDA_118,
+    )
+
+    expect(r.esFeriado).toBe(true)
+    expect(r.minutos.feriadoNocturno).toBe(180)
+    // 3 h × 14.285,71 × (1 + 1 + 0,30) = 98.571
+    expect(r.total).toBe(98_571)
+  })
+})
+
 describe('entradas inválidas', () => {
   it('rechaza una marcación con salida anterior o igual a la entrada', () => {
     expect(() => calcularJornada(jornada({ entrada: '08:00', salida: '08:00' }))).toThrow(MotorError)

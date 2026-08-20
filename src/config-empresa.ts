@@ -51,6 +51,13 @@ export interface ConfigEmpresa {
 
   /** Redondear cada categoría al guaraní. */
   redondearValores: boolean
+
+  /**
+   * Adhesión voluntaria a la Resolución 118/2026: para jornadas desde su vigencia,
+   * las horas ordinarias nocturnas pasan a pagarse con recargo del 40% (art. 1°).
+   * Los no adheridos siguen liquidando con el régimen anterior (art. 5°).
+   */
+  adherida118: boolean
 }
 
 /**
@@ -76,6 +83,7 @@ export const FRIGORIFICO: ConfigEmpresa = {
   recargoFeriado: 1,
   dividirTurnoPorMedianoche: true,
   redondearValores: true,
+  adherida118: false,
 }
 
 /**
