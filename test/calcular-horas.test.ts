@@ -116,6 +116,14 @@ describe('tolerancias', () => {
     expect(r.minutos.extrasDiurnas).toBe(0)
     expect(r.minutos.ordinariasDiurnas).toBe(480)
   })
+
+  it('atraso exactamente igual a la tolerancia: se perdona (borde inclusivo)', () => {
+    const r = calcularJornada(jornada({ entrada: '08:10', salida: '17:00' }))
+
+    expect(r.minutos.descuento).toBe(0)
+    expect(r.minutos.ordinariasDiurnas).toBe(480)
+    expect(r.total).toBe(100_000)
+  })
 })
 
 describe('nocturnidad', () => {
@@ -137,6 +145,16 @@ describe('nocturnidad', () => {
     expect(r.minutos.extrasDiurnas).toBe(0)
     expect(r.minutos.extrasNocturnas).toBe(0)
   })
+
+  it('turno mixto: cada bloque se paga con su propio divisor (8 diurno, 7 nocturno)', () => {
+    const r = calcularJornada(jornada({ turno: TURNO_TARDE, entrada: '14:00', salida: '23:00' }))
+
+    // 360 min diurnos × (100.000 / 8 / 60) = 75.000
+    expect(r.valores.ordinariasDiurnas).toBe(75_000)
+    // 180 min nocturnos × (100.000 / 7 / 60) × 1,30 = 55.714
+    expect(r.valores.ordinariasNocturnas).toBe(55_714)
+    expect(r.total).toBe(130_714)
+  })
 })
 
 describe('feriados', () => {
@@ -147,6 +165,24 @@ describe('feriados', () => {
     expect(r.minutos.feriadoDiurno).toBe(480)
     expect(r.minutos.ordinariasDiurnas).toBe(0)
     expect(r.total).toBe(200_000)
+  })
+
+  it('turno que cruza la medianoche desde un feriado a un día común: cada tramo se evalúa contra su propia fecha', () => {
+    const j: Jornada = {
+      fecha: FERIADO, // 2026-05-01
+      colaborador: { nombre: 'Ramona Benítez', formaPago: 'mensual', salarioBase: 3_000_000 },
+      turno: { nombre: 'Madrugada 22-04', inicio: '22:00', fin: '04:00' },
+      marcacion: {
+        entrada: `${FERIADO}T22:00`,
+        salida: '2026-05-02T04:00',
+      },
+    }
+    const r = calcularJornada(j)
+
+    // 22:00 → 24:00 del 2026-05-01 (feriado): 120 min feriado nocturno.
+    expect(r.minutos.feriadoNocturno).toBe(120)
+    // 00:00 → 04:00 del 2026-05-02 (día común): 240 min ordinarias nocturnas.
+    expect(r.minutos.ordinariasNocturnas).toBe(240)
   })
 })
 
