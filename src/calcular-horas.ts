@@ -264,11 +264,19 @@ export function calcularJornada(
     if (restante <= 0) continue
 
     const valorMinuto = b.nocturno ? valorMinutoNocturno : valorMinutoDiurno
-    const bloqueEsFeriado = calendario.esFeriado(b.fecha)
+    // Regla 7: si la empresa parte el turno por la medianoche, cada bloque se evalúa
+    // contra su propia fecha; si no, todo el turno se evalúa contra la fecha de inicio.
+    const bloqueEsFeriado = cfg.dividirTurnoPorMedianoche
+      ? calendario.esFeriado(b.fecha)
+      : esFeriado
 
     if (bloqueEsFeriado) {
       // En feriado no se separan ordinarias de extras: todo el tiempo del día
-      // se paga como feriado, con el recargo del feriado.
+      // se paga como feriado, con el recargo del feriado. Pero igual consume la
+      // ordinaria programada: lo que quede fuera del turno programado, en bloques
+      // posteriores no feriado, cae en extras como corresponde.
+      const consumido = aux > 0 ? Math.min(restante, aux) : 0
+      aux -= consumido
       if (b.nocturno) {
         min.feriadoNocturno += restante
         val.feriadoNocturno += restante * valorMinuto * (1 + cfg.recargoFeriado + cfg.recargoNocturno)

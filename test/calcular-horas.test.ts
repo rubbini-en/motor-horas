@@ -224,6 +224,50 @@ describe('configuración por empresa', () => {
   })
 })
 
+describe('feriado y dividirTurnoPorMedianoche', () => {
+  it('dividirTurnoPorMedianoche=false: la fecha de inicio manda para todo el turno', () => {
+    // SEGURIDAD_SUR no parte el turno por la medianoche: la guardia entera se
+    // liquida contra la fecha en que empezó, aunque cruce a un día común.
+    const j: Jornada = {
+      fecha: FERIADO, // 2026-05-01
+      colaborador: { nombre: 'Ramona Benítez', formaPago: 'mensual', salarioBase: 3_000_000 },
+      turno: { nombre: 'Guardia 22-08', inicio: '22:00', fin: '08:00' },
+      marcacion: {
+        entrada: `${FERIADO}T22:00`,
+        salida: '2026-05-02T08:00',
+      },
+    }
+    const r = calcularJornada(j, SEGURIDAD_SUR)
+
+    expect(r.minutos.feriadoNocturno).toBe(480) // 22:00 → 06:00
+    expect(r.minutos.feriadoDiurno).toBe(120) // 06:00 → 08:00
+    expect(r.minutos.ordinariasDiurnas).toBe(0)
+    expect(r.minutos.ordinariasNocturnas).toBe(0)
+  })
+
+  it('el bloque feriado consume la ordinaria programada; el excedente posterior no feriado va a extras', () => {
+    // Turno programado 22:00 → 06:00 (480 min de ordinaria). El colaborador entra
+    // en un feriado y se queda hasta las 08:00. Los primeros 120 min son feriado
+    // nocturno (día 1); el resto del turno programado son ordinarias nocturnas del
+    // día 2. Como el feriado ya consumió parte de la ordinaria, las 2 h de más
+    // (06:00 → 08:00) no encuentran ordinaria libre y caen en extras diurnas.
+    const j: Jornada = {
+      fecha: FERIADO, // 2026-05-01
+      colaborador: { nombre: 'Ramona Benítez', formaPago: 'mensual', salarioBase: 3_000_000 },
+      turno: { nombre: 'Nocturno 22-06', inicio: '22:00', fin: '06:00' },
+      marcacion: {
+        entrada: `${FERIADO}T22:00`,
+        salida: '2026-05-02T08:00',
+      },
+    }
+    const r = calcularJornada(j)
+
+    expect(r.minutos.feriadoNocturno).toBe(120) // 22:00 → 24:00 del feriado
+    expect(r.minutos.ordinariasNocturnas).toBe(360) // 00:00 → 06:00 del día común
+    expect(r.minutos.extrasDiurnas).toBe(120) // 06:00 → 08:00, ya fuera del turno programado
+  })
+})
+
 describe('resolución 118/2026 · recargo nocturno del 40%', () => {
   const ADHERIDA_118: ConfigEmpresa = { ...FRIGORIFICO, adherida118: true }
 
